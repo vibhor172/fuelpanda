@@ -4,7 +4,7 @@ A layered FastAPI backend for managing a fuel-delivery fleet: locations, product
 inventory, drivers, vehicles, vehicle allocation (blocking), shifts, deliveries
 (orders), GPS tracking, and a performance-optimized fleet-status read model.
 
-Full design spec: [`context.md`](context.md). Schema rationale: [`docs/DATABASE.md`](docs/DATABASE.md).
+ Schema rationale: [`docs/DATABASE.md`](docs/DATABASE.md).
 Trade-offs & assumptions: [`docs/DECISIONS.md`](docs/DECISIONS.md).
 
 ## Stack
