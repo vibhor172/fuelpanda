@@ -1,0 +1,774 @@
+{
+  "info": {
+    "name": "FuelPanda — Fleet Tracking Platform",
+    "_postman_id": "fuelpanda-collection-0001",
+    "description": "Postman collection for the FuelPanda fleet & delivery management API.\n\n**Base URL:** `{{base_url}}` (defaults to `http://127.0.0.1:8000`)\n**API prefix:** `/api/v1` (already baked into each request path)\n\n**Auth:** Authentication is stubbed in this build (`get_current_admin` / `get_current_driver` inject a fake identity), so **no token or header is required**. Admin routes run as admin id=1; driver routes run as driver id=1.\n\n**Quick start (happy path):**\n1. Master data → Create Location (HUB), Create Product, Create Inventory\n2. Master data → Create Driver, Create Vehicle\n3. Allocations → Create Allocation (auto-creates a SCHEDULED shift)\n4. Shifts → list to find the `shift_id`, then Start Shift\n5. Orders → Create Order against that shift + a destination location\n6. Tracking → Ingest GPS for the shift; Fleet → Status\n7. Deliveries → Complete Delivery; then End Shift\n\nThe collection variables (`location_id`, `product_id`, `driver_id`, `vehicle_id`, `shift_id`, `order_id`, `allocation_id`, `inventory_id`) default to `1` so requests are runnable immediately — update them as you create real records.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://127.0.0.1:8000", "type": "string" },
+    { "key": "location_id", "value": "1", "type": "string" },
+    { "key": "destination_id", "value": "2", "type": "string" },
+    { "key": "product_id", "value": "1", "type": "string" },
+    { "key": "inventory_id", "value": "1", "type": "string" },
+    { "key": "driver_id", "value": "1", "type": "string" },
+    { "key": "vehicle_id", "value": "1", "type": "string" },
+    { "key": "allocation_id", "value": "1", "type": "string" },
+    { "key": "shift_id", "value": "1", "type": "string" },
+    { "key": "order_id", "value": "1", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/health", "host": ["{{base_url}}"], "path": ["health"] },
+            "description": "Liveness probe. Not under the /api/v1 prefix."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": { "raw": "{{base_url}}/health", "host": ["{{base_url}}"], "path": ["health"] }
+              },
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"status\": \"ok\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Locations (admin)",
+      "item": [
+        {
+          "name": "Create Location",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Central Hub\",\n  \"type\": \"HUB\",\n  \"address\": \"100 Refinery Rd\",\n  \"latitude\": 40.7128,\n  \"longitude\": -74.006\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/v1/locations", "host": ["{{base_url}}"], "path": ["api", "v1", "locations"] },
+            "description": "Create a HUB or TERMINAL. `type` must be `HUB` or `TERMINAL`. latitude/longitude optional."
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"name\": \"Central Hub\",\n  \"type\": \"HUB\",\n  \"address\": \"100 Refinery Rd\",\n  \"latitude\": 40.7128,\n  \"longitude\": -74.006\n}" },
+                "url": { "raw": "{{base_url}}/api/v1/locations", "host": ["{{base_url}}"], "path": ["api", "v1", "locations"] }
+              },
+              "status": "Created",
+              "code": 201,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"id\": 1,\n  \"created_at\": \"2026-06-10T09:00:00Z\",\n  \"updated_at\": \"2026-06-10T09:00:00Z\",\n  \"name\": \"Central Hub\",\n  \"type\": \"HUB\",\n  \"address\": \"100 Refinery Rd\",\n  \"latitude\": 40.7128,\n  \"longitude\": -74.006\n}"
+            }
+          ]
+        },
+        {
+          "name": "Create Location (Terminal destination)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Downtown Terminal\",\n  \"type\": \"TERMINAL\",\n  \"address\": \"42 Market St\",\n  \"latitude\": 40.7306,\n  \"longitude\": -73.9352\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/v1/locations", "host": ["{{base_url}}"], "path": ["api", "v1", "locations"] },
+            "description": "A TERMINAL to use as an order destination."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Location",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"address\": \"200 New Refinery Rd\"\n}" },
+            "url": { "raw": "{{base_url}}/api/v1/locations/{{location_id}}", "host": ["{{base_url}}"], "path": ["api", "v1", "locations", "{{location_id}}"] },
+            "description": "Partial update — send only the fields you want to change."
+          },
+          "response": []
+        },
+        {
+          "name": "List Locations",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/locations?limit=50&offset=0",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "locations"],
+              "query": [
+                { "key": "limit", "value": "50", "description": "1–500" },
+                { "key": "offset", "value": "0", "description": ">= 0" }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Location",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/api/v1/locations/{{location_id}}", "host": ["{{base_url}}"], "path": ["api", "v1", "locations", "{{location_id}}"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Location Inventory",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/api/v1/locations/{{location_id}}/inventory", "host": ["{{base_url}}"], "path": ["api", "v1", "locations", "{{location_id}}", "inventory"] },
+            "description": "All inventory rows for a single location."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Products (admin)",
+      "item": [
+        {
+          "name": "Create Product",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Diesel\",\n  \"code\": \"DSL\",\n  \"unit\": \"gallons\"\n}" },
+            "url": { "raw": "{{base_url}}/api/v1/products", "host": ["{{base_url}}"], "path": ["api", "v1", "products"] },
+            "description": "`name` and `code` are unique. `unit` defaults to \"gallons\"."
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"name\": \"Diesel\",\n  \"code\": \"DSL\",\n  \"unit\": \"gallons\"\n}" },
+                "url": { "raw": "{{base_url}}/api/v1/products", "host": ["{{base_url}}"], "path": ["api", "v1", "products"] }
+              },
+              "status": "Created",
+              "code": 201,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"id\": 1,\n  \"created_at\": \"2026-06-10T09:00:00Z\",\n  \"updated_at\": \"2026-06-10T09:00:00Z\",\n  \"name\": \"Diesel\",\n  \"code\": \"DSL\",\n  \"unit\": \"gallons\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Update Product",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Diesel #2\"\n}" },
+            "url": { "raw": "{{base_url}}/api/v1/products/{{product_id}}", "host": ["{{base_url}}"], "path": ["api", "v1", "products", "{{product_id}}"] }
+          },
+          "response": []
+        },
+        {
+          "name": "List Products",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/products?limit=50&offset=0",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "products"],
+              "query": [
+                { "key": "limit", "value": "50" },
+                { "key": "offset", "value": "0" }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Product",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/api/v1/products/{{product_id}}", "host": ["{{base_url}}"], "path": ["api", "v1", "products", "{{product_id}}"] }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Inventory (admin)",
+      "item": [
+        {
+          "name": "Create Inventory",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"location_id\": {{location_id}},\n  \"product_id\": {{product_id}},\n  \"quantity_gallons\": 10000.00\n}" },
+            "url": { "raw": "{{base_url}}/api/v1/inventory", "host": ["{{base_url}}"], "path": ["api", "v1", "inventory"] },
+            "description": "One row per (location, product). `quantity_gallons` must be >= 0."
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"location_id\": 1,\n  \"product_id\": 1,\n  \"quantity_gallons\": 10000.00\n}" },
+                "url": { "raw": "{{base_url}}/api/v1/inventory", "host": ["{{base_url}}"], "path": ["api", "v1", "inventory"] }
+              },
+              "status": "Created",
+              "code": 201,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"id\": 1,\n  \"created_at\": \"2026-06-10T09:00:00Z\",\n  \"updated_at\": \"2026-06-10T09:00:00Z\",\n  \"location_id\": 1,\n  \"product_id\": 1,\n  \"quantity_gallons\": 10000.00\n}"
+            }
+          ]
+        },
+        {
+          "name": "Update Inventory",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"quantity_gallons\": 9500.00\n}" },
+            "url": { "raw": "{{base_url}}/api/v1/inventory/{{inventory_id}}", "host": ["{{base_url}}"], "path": ["api", "v1", "inventory", "{{inventory_id}}"] }
+          },
+          "response": []
+        },
+        {
+          "name": "List All Inventory (monitor, cached)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/api/v1/inventory", "host": ["{{base_url}}"], "path": ["api", "v1", "inventory"] },
+            "description": "Cache-aside read across all locations."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Drivers (admin)",
+      "item": [
+        {
+          "name": "Create Driver",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Jane Doe\",\n  \"license_number\": \"DL-12345\",\n  \"phone\": \"+1-555-0100\",\n  \"status\": \"ACTIVE\"\n}" },
+            "url": { "raw": "{{base_url}}/api/v1/drivers", "host": ["{{base_url}}"], "path": ["api", "v1", "drivers"] },
+            "description": "`license_number` is unique. `status` is ACTIVE | INACTIVE (default ACTIVE)."
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"name\": \"Jane Doe\",\n  \"license_number\": \"DL-12345\",\n  \"phone\": \"+1-555-0100\",\n  \"status\": \"ACTIVE\"\n}" },
+                "url": { "raw": "{{base_url}}/api/v1/drivers", "host": ["{{base_url}}"], "path": ["api", "v1", "drivers"] }
+              },
+              "status": "Created",
+              "code": 201,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"id\": 1,\n  \"created_at\": \"2026-06-10T09:00:00Z\",\n  \"updated_at\": \"2026-06-10T09:00:00Z\",\n  \"name\": \"Jane Doe\",\n  \"license_number\": \"DL-12345\",\n  \"phone\": \"+1-555-0100\",\n  \"status\": \"ACTIVE\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Update Driver",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"INACTIVE\"\n}" },
+            "url": { "raw": "{{base_url}}/api/v1/drivers/{{driver_id}}", "host": ["{{base_url}}"], "path": ["api", "v1", "drivers", "{{driver_id}}"] }
+          },
+          "response": []
+        },
+        {
+          "name": "List Drivers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/drivers?limit=50&offset=0",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "drivers"],
+              "query": [
+                { "key": "limit", "value": "50" },
+                { "key": "offset", "value": "0" }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Driver",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/api/v1/drivers/{{driver_id}}", "host": ["{{base_url}}"], "path": ["api", "v1", "drivers", "{{driver_id}}"] }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Vehicles (admin)",
+      "item": [
+        {
+          "name": "Create Vehicle",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"registration_number\": \"TRK-001\",\n  \"capacity_gallons\": 5000.00,\n  \"status\": \"AVAILABLE\"\n}" },
+            "url": { "raw": "{{base_url}}/api/v1/vehicles", "host": ["{{base_url}}"], "path": ["api", "v1", "vehicles"] },
+            "description": "`registration_number` is unique. `capacity_gallons` > 0. status: AVAILABLE | IN_USE | MAINTENANCE."
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"registration_number\": \"TRK-001\",\n  \"capacity_gallons\": 5000.00,\n  \"status\": \"AVAILABLE\"\n}" },
+                "url": { "raw": "{{base_url}}/api/v1/vehicles", "host": ["{{base_url}}"], "path": ["api", "v1", "vehicles"] }
+              },
+              "status": "Created",
+              "code": 201,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"id\": 1,\n  \"created_at\": \"2026-06-10T09:00:00Z\",\n  \"updated_at\": \"2026-06-10T09:00:00Z\",\n  \"registration_number\": \"TRK-001\",\n  \"capacity_gallons\": 5000.00,\n  \"status\": \"AVAILABLE\",\n  \"last_latitude\": null,\n  \"last_longitude\": null,\n  \"last_seen_at\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "Update Vehicle",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"MAINTENANCE\"\n}" },
+            "url": { "raw": "{{base_url}}/api/v1/vehicles/{{vehicle_id}}", "host": ["{{base_url}}"], "path": ["api", "v1", "vehicles", "{{vehicle_id}}"] }
+          },
+          "response": []
+        },
+        {
+          "name": "List Vehicles",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/vehicles?limit=50&offset=0",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "vehicles"],
+              "query": [
+                { "key": "limit", "value": "50" },
+                { "key": "offset", "value": "0" }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Vehicle",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/api/v1/vehicles/{{vehicle_id}}", "host": ["{{base_url}}"], "path": ["api", "v1", "vehicles", "{{vehicle_id}}"] }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Allocations (admin)",
+      "item": [
+        {
+          "name": "Create Allocation",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"vehicle_id\": {{vehicle_id}},\n  \"driver_id\": {{driver_id}},\n  \"allocation_date\": \"2026-06-10\"\n}" },
+            "url": { "raw": "{{base_url}}/api/v1/allocations", "host": ["{{base_url}}"], "path": ["api", "v1", "allocations"] },
+            "description": "Allocates a vehicle to a driver for a date and auto-creates a SCHEDULED shift. A vehicle/driver can have only ONE active allocation per date — a conflict returns 409."
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"vehicle_id\": 1,\n  \"driver_id\": 1,\n  \"allocation_date\": \"2026-06-10\"\n}" },
+                "url": { "raw": "{{base_url}}/api/v1/allocations", "host": ["{{base_url}}"], "path": ["api", "v1", "allocations"] }
+              },
+              "status": "Created",
+              "code": 201,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"id\": 1,\n  \"created_at\": \"2026-06-10T09:00:00Z\",\n  \"updated_at\": \"2026-06-10T09:00:00Z\",\n  \"vehicle_id\": 1,\n  \"driver_id\": 1,\n  \"allocation_date\": \"2026-06-10\",\n  \"status\": \"ACTIVE\"\n}"
+            },
+            {
+              "name": "409 Conflict (vehicle already allocated)",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"vehicle_id\": 1,\n  \"driver_id\": 1,\n  \"allocation_date\": \"2026-06-10\"\n}" },
+                "url": { "raw": "{{base_url}}/api/v1/allocations", "host": ["{{base_url}}"], "path": ["api", "v1", "allocations"] }
+              },
+              "status": "Conflict",
+              "code": 409,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"error\": {\n    \"code\": \"VEHICLE_ALREADY_ALLOCATED\",\n    \"message\": \"Vehicle is already allocated for this date\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "List Allocations",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/allocations?allocation_date=2026-06-10&vehicle_id=&driver_id=",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "allocations"],
+              "query": [
+                { "key": "allocation_date", "value": "2026-06-10", "description": "Optional filter (YYYY-MM-DD)" },
+                { "key": "vehicle_id", "value": "", "description": "Optional filter", "disabled": true },
+                { "key": "driver_id", "value": "", "description": "Optional filter", "disabled": true }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Release Allocation",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": { "raw": "{{base_url}}/api/v1/allocations/{{allocation_id}}", "host": ["{{base_url}}"], "path": ["api", "v1", "allocations", "{{allocation_id}}"] },
+            "description": "Releases (frees) the allocation. Returns 204 No Content. The vehicle becomes re-allocatable the same day."
+          },
+          "response": [
+            {
+              "name": "204 No Content",
+              "originalRequest": {
+                "method": "DELETE",
+                "header": [],
+                "url": { "raw": "{{base_url}}/api/v1/allocations/1", "host": ["{{base_url}}"], "path": ["api", "v1", "allocations", "1"] }
+              },
+              "status": "No Content",
+              "code": 204,
+              "header": [],
+              "body": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Orders (admin)",
+      "item": [
+        {
+          "name": "Create Order",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"shift_id\": {{shift_id}},\n  \"destination_id\": {{destination_id}},\n  \"items\": [\n    { \"product_id\": {{product_id}}, \"quantity_gallons\": 500.00 }\n  ]\n}" },
+            "url": { "raw": "{{base_url}}/api/v1/orders", "host": ["{{base_url}}"], "path": ["api", "v1", "orders"] },
+            "description": "One order = one destination + >=1 items. Each item quantity must be > 0."
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"shift_id\": 1,\n  \"destination_id\": 2,\n  \"items\": [\n    { \"product_id\": 1, \"quantity_gallons\": 500.00 }\n  ]\n}" },
+                "url": { "raw": "{{base_url}}/api/v1/orders", "host": ["{{base_url}}"], "path": ["api", "v1", "orders"] }
+              },
+              "status": "Created",
+              "code": 201,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"id\": 1,\n  \"created_at\": \"2026-06-10T09:00:00Z\",\n  \"updated_at\": \"2026-06-10T09:00:00Z\",\n  \"shift_id\": 1,\n  \"destination_id\": 2,\n  \"status\": \"PENDING\",\n  \"failure_reason\": null,\n  \"completed_at\": null,\n  \"items\": [\n    { \"id\": 1, \"product_id\": 1, \"quantity_gallons\": 500.00 }\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "Update Order",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"items\": [\n    { \"product_id\": {{product_id}}, \"quantity_gallons\": 750.00 }\n  ]\n}" },
+            "url": { "raw": "{{base_url}}/api/v1/orders/{{order_id}}", "host": ["{{base_url}}"], "path": ["api", "v1", "orders", "{{order_id}}"] },
+            "description": "Update destination and/or replace items (only while not finalized)."
+          },
+          "response": []
+        },
+        {
+          "name": "List Orders",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/orders?shift_id={{shift_id}}&limit=50&offset=0",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "orders"],
+              "query": [
+                { "key": "shift_id", "value": "{{shift_id}}", "description": "Optional filter" },
+                { "key": "limit", "value": "50" },
+                { "key": "offset", "value": "0" }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Order",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/api/v1/orders/{{order_id}}", "host": ["{{base_url}}"], "path": ["api", "v1", "orders", "{{order_id}}"] }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Deliveries (driver)",
+      "item": [
+        {
+          "name": "Complete Delivery",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": { "raw": "{{base_url}}/api/v1/driver/orders/{{order_id}}/complete", "host": ["{{base_url}}"], "path": ["api", "v1", "driver", "orders", "{{order_id}}", "complete"] },
+            "description": "Atomically completes the delivery: row-locks the order + each inventory row, decrements inventory, flips status to COMPLETED. Idempotent — a second call on an already-finalized order returns 409 DELIVERY_ALREADY_FINALIZED."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": { "raw": "{{base_url}}/api/v1/driver/orders/1/complete", "host": ["{{base_url}}"], "path": ["api", "v1", "driver", "orders", "1", "complete"] }
+              },
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"id\": 1,\n  \"created_at\": \"2026-06-10T09:00:00Z\",\n  \"updated_at\": \"2026-06-10T10:15:00Z\",\n  \"shift_id\": 1,\n  \"destination_id\": 2,\n  \"status\": \"COMPLETED\",\n  \"failure_reason\": null,\n  \"completed_at\": \"2026-06-10T10:15:00Z\",\n  \"items\": [\n    { \"id\": 1, \"product_id\": 1, \"quantity_gallons\": 500.00 }\n  ]\n}"
+            },
+            {
+              "name": "409 Already Finalized",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": { "raw": "{{base_url}}/api/v1/driver/orders/1/complete", "host": ["{{base_url}}"], "path": ["api", "v1", "driver", "orders", "1", "complete"] }
+              },
+              "status": "Conflict",
+              "code": 409,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"error\": {\n    \"code\": \"DELIVERY_ALREADY_FINALIZED\",\n    \"message\": \"Order is already COMPLETED\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Fail Delivery",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"reason\": \"Customer site closed\"\n}" },
+            "url": { "raw": "{{base_url}}/api/v1/driver/orders/{{order_id}}/fail", "host": ["{{base_url}}"], "path": ["api", "v1", "driver", "orders", "{{order_id}}", "fail"] },
+            "description": "Marks the delivery FAILED with a reason. No inventory change. `reason` is required (non-empty)."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"reason\": \"Customer site closed\"\n}" },
+                "url": { "raw": "{{base_url}}/api/v1/driver/orders/1/fail", "host": ["{{base_url}}"], "path": ["api", "v1", "driver", "orders", "1", "fail"] }
+              },
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"id\": 1,\n  \"created_at\": \"2026-06-10T09:00:00Z\",\n  \"updated_at\": \"2026-06-10T10:20:00Z\",\n  \"shift_id\": 1,\n  \"destination_id\": 2,\n  \"status\": \"FAILED\",\n  \"failure_reason\": \"Customer site closed\",\n  \"completed_at\": null,\n  \"items\": [\n    { \"id\": 1, \"product_id\": 1, \"quantity_gallons\": 500.00 }\n  ]\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Shifts (driver)",
+      "item": [
+        {
+          "name": "List My Shifts",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/driver/shifts?scope=present",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "driver", "shifts"],
+              "query": [
+                { "key": "scope", "value": "present", "description": "past | present | future" }
+              ]
+            },
+            "description": "Shifts for the current (stubbed) driver, with vehicle + orders. scope defaults to present."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Shift",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/api/v1/driver/shifts/{{shift_id}}", "host": ["{{base_url}}"], "path": ["api", "v1", "driver", "shifts", "{{shift_id}}"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Start Shift",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": { "raw": "{{base_url}}/api/v1/driver/shifts/{{shift_id}}/start", "host": ["{{base_url}}"], "path": ["api", "v1", "driver", "shifts", "{{shift_id}}", "start"] },
+            "description": "Transitions SCHEDULED → ACTIVE and stamps started_at. GPS is only accepted while a shift is ACTIVE."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": { "raw": "{{base_url}}/api/v1/driver/shifts/1/start", "host": ["{{base_url}}"], "path": ["api", "v1", "driver", "shifts", "1", "start"] }
+              },
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"id\": 1,\n  \"created_at\": \"2026-06-10T08:00:00Z\",\n  \"updated_at\": \"2026-06-10T08:30:00Z\",\n  \"driver_id\": 1,\n  \"allocation_id\": 1,\n  \"shift_date\": \"2026-06-10\",\n  \"status\": \"ACTIVE\",\n  \"started_at\": \"2026-06-10T08:30:00Z\",\n  \"ended_at\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "End Shift",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": { "raw": "{{base_url}}/api/v1/driver/shifts/{{shift_id}}/end", "host": ["{{base_url}}"], "path": ["api", "v1", "driver", "shifts", "{{shift_id}}", "end"] },
+            "description": "Transitions ACTIVE → COMPLETED. Any still-incomplete orders are auto-FAILED with reason UNCOMPLETED_AT_SHIFT_END. Removes the vehicle from the live fleet view."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Tracking",
+      "item": [
+        {
+          "name": "Ingest GPS (driver)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"latitude\": 40.7128,\n  \"longitude\": -74.006,\n  \"timestamp\": \"2026-06-10T09:05:00Z\"\n}" },
+            "url": { "raw": "{{base_url}}/api/v1/driver/shifts/{{shift_id}}/gps", "host": ["{{base_url}}"], "path": ["api", "v1", "driver", "shifts", "{{shift_id}}", "gps"] },
+            "description": "Records a GPS point for the shift's vehicle. Only accepted while the shift is ACTIVE. `timestamp` is optional (server-stamped if omitted). Write-through updates the live fleet view + vehicle.last_* columns."
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"latitude\": 40.7128,\n  \"longitude\": -74.006,\n  \"timestamp\": \"2026-06-10T09:05:00Z\"\n}" },
+                "url": { "raw": "{{base_url}}/api/v1/driver/shifts/1/gps", "host": ["{{base_url}}"], "path": ["api", "v1", "driver", "shifts", "1", "gps"] }
+              },
+              "status": "Created",
+              "code": 201,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"id\": 1,\n  \"vehicle_id\": 1,\n  \"shift_id\": 1,\n  \"latitude\": 40.7128,\n  \"longitude\": -74.006,\n  \"recorded_at\": \"2026-06-10T09:05:00Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Vehicle GPS History (admin)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/tracking/vehicles/{{vehicle_id}}/history?from=2026-06-10T00:00:00Z&to=2026-06-10T23:59:59Z&limit=50&offset=0",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "tracking", "vehicles", "{{vehicle_id}}", "history"],
+              "query": [
+                { "key": "from", "value": "2026-06-10T00:00:00Z", "description": "Optional ISO-8601 lower bound" },
+                { "key": "to", "value": "2026-06-10T23:59:59Z", "description": "Optional ISO-8601 upper bound" },
+                { "key": "limit", "value": "50" },
+                { "key": "offset", "value": "0" }
+              ]
+            },
+            "description": "Time-ordered GPS history for a vehicle. `from`/`to` are query aliases (not from_ts/to_ts)."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Fleet (admin)",
+      "item": [
+        {
+          "name": "Fleet Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/api/v1/fleet/status", "host": ["{{base_url}}"], "path": ["api", "v1", "fleet", "status"] },
+            "description": "Latest location of all active vehicles. Served from the Redis live view (O(active vehicles)); falls back to denormalized DB columns if Redis is cold. `source` indicates which path served the response."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": { "raw": "{{base_url}}/api/v1/fleet/status", "host": ["{{base_url}}"], "path": ["api", "v1", "fleet", "status"] }
+              },
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"source\": \"redis\",\n  \"count\": 1,\n  \"vehicles\": [\n    {\n      \"vehicle_id\": 1,\n      \"latitude\": 40.7128,\n      \"longitude\": -74.006,\n      \"recorded_at\": \"2026-06-10T09:05:00Z\",\n      \"shift_id\": 1,\n      \"driver_id\": 1\n    }\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "Vehicle Location",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/api/v1/fleet/vehicles/{{vehicle_id}}/location", "host": ["{{base_url}}"], "path": ["api", "v1", "fleet", "vehicles", "{{vehicle_id}}", "location"] },
+            "description": "Latest known location of a single vehicle. Returns 404 if none recorded."
+          },
+          "response": [
+            {
+              "name": "404 No location",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": { "raw": "{{base_url}}/api/v1/fleet/vehicles/1/location", "host": ["{{base_url}}"], "path": ["api", "v1", "fleet", "vehicles", "1", "location"] }
+              },
+              "status": "Not Found",
+              "code": 404,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"detail\": \"No location recorded for this vehicle\"\n}"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
